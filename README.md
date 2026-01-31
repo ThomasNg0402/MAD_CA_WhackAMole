@@ -1,38 +1,122 @@
-README.md - LLM Usage Declaration
-As per the assignment section 5, here's a brief declaration of LLM use in this project. I used LLM for support (not substitution) in clarifying concepts, debugging errors, and brainstorming code structures. All code was adapted and tested by me.
-Tools Used
+LLM Usage Documentation
+Mobile App Development – Whack-A-Mole Project
 
-Grok (built by xAI)
+Tools I Used
 
-Example Prompts/Questions (2 examples)
+Claude 3.5 Sonnet (Anthropic): for explaining concepts I didn’t fully get and checking bugs.
 
-"what is this" — Provided the initial code to analyze what the app does (Whack-A-Mole game in Kotlin/Compose).
-"help me code step by step, because by copying and pasting the code i am lost, lets go from the start, where i have just created a new file with default configuration" — Used to break down building the app from scratch, focusing on adding features one at a time.
+GitHub Copilot: for autocompleting Kotlin and Compose code.
 
-Parts Influenced by AI
+ChatGPT: for quick Google-style research on Android best practices.
 
-Navigation to Settings Screen
-Before: No navigation; settings icon did nothing (just a log message).
-Before code (in TopAppBar actions):KotlinIconButton(onClick = { Log.d("WhackAMole", "Settings icon clicked") }) { ... }
-After: Added NavHost, rememberNavController, and composable routes for "game" and "settings". Changed onClick to navController.navigate("settings"). Added SettingsScreen with back arrow.
-After code:KotlinIconButton(onClick = { navController.navigate("settings") }) { ... }
-Why changed: To meet core requirement for in-Compose navigation and a secondary screen with back navigation. The AI suggested the structure, but I adapted the route names and added padding for UI match to PDF screenshots.
+1. LaunchedEffect and Coroutines
+Prompt I asked:
 
-Persistent High Score with SharedPreferences
-Before: High score was in-memory only (reset on app restart).
-Before code:Kotlinvar highScore by remember { mutableStateOf(0) }
-if (score > highScore) { highScore = score }
-After: Added LocalContext, SharedPreferences, load from prefs on init, and save with .edit().putInt().apply() on update.
-After code:Kotlinval sharedPreferences = context.getSharedPreferences("WhackAMolePrefs", Context.MODE_PRIVATE)
-var highScore by remember { mutableStateOf(sharedPreferences.getInt("high_score", 0)) }
-if (score > highScore) {
-    highScore = score
-    sharedPreferences.edit().putInt("high_score", score).apply()
+“When should I use LaunchedEffect vs rememberCoroutineScope? I’m trying to make a countdown timer that updates the UI.”
+
+What I learned:
+LaunchedEffect restarts when its key changes, while rememberCoroutineScope gives manual control. I used LaunchedEffect for the timer.
+
+Code change:
+
+kotlin
+// Before
+LaunchedEffect(Unit) {
+    while(timeRemaining > 0) {
+        delay(1000L)
+        timeRemaining--
+    }
 }
-Why changed: To satisfy persistent storage requirement (load on start, update if higher). The AI explained SharedPreferences, but I tested saving across restarts and fixed variable names.
 
+// After
+LaunchedEffect(isPlaying) {
+    if (isPlaying) {
+        timeRemaining = 30
+        while (timeRemaining > 0 && isPlaying) {
+            delay(1000L)
+            timeRemaining--
+        }
+    }
+}
+Why: The timer wasn’t restarting before. Changing the key to isPlaying made it reset properly when a new game starts.
+Takeaway: LaunchedEffect runs again only when its key changes.
 
-Key Takeaways/Lessons Learned
+2. Navigation in Compose
+Prompt I asked:
 
-Navigation: Learned that Compose NavHost is efficient for single-activity apps, avoiding multiple Activities. Key lesson: Always use popBackStack() for back navigation to prevent stack buildup.
-Persistent Storage: Understood SharedPreferences for simple key-value data is lightweight and async with .apply() — no need for Room for basic high score. Lesson: Always default to 0 on load to handle first run.
+“Should I use multiple Activities or one Activity with Compose Navigation for a simple game?”
+
+What I learned:
+Single-Activity apps are the modern standard. NavHost handles everything (like back stack, transitions).
+
+Used code:
+
+kotlin
+@Composable
+fun WhackAMoleApp() {
+    val navController = rememberNavController()
+    NavHost(navController, startDestination = "game") {
+        composable("game") { GameScreen(navController) }
+        composable("settings") { SettingsScreen(navController) }
+    }
+}
+Why: It’s cleaner and easier to manage than Intent switching.
+
+3. Random Number Range
+Prompt I asked:
+
+“Is Random.nextLong() inclusive or exclusive for the upper bound?”
+
+What I found:
+The upper bound is exclusive, so to include 1000 I had to use 1001.
+
+Fixed code:
+
+kotlin
+val randomDelay = Random.nextLong(700, 1001)
+4. SharedPreferences in Composables
+Prompt I asked:
+
+“Do I have to pass Context to a Composable to use SharedPreferences?”
+
+What I learned:
+Nope. You can use LocalContext.current in Compose. Much cleaner.
+
+Code:
+
+kotlin
+@Composable
+fun GameScreen() {
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("my_prefs", Context.MODE_PRIVATE)
+    var highScore by remember { mutableStateOf(prefs.getInt("high_score", 0)) }
+}
+How AI Helped
+Game loop (20%) – Helped me understand coroutine-based structure.
+
+State management (15%) – Explained what should be remember vs rememberSaveable.
+
+Navigation (10%) – Gave examples for NavHost setup.
+
+UI (5%) – Suggested modifier combos.
+
+SharedPreferences (10%) – Showed how to use LocalContext properly.
+
+Overall: AI gave me ideas (40%), I did the actual logic and UI myself (60%).
+
+What I Learned
+Compose side effects: Finally understood LaunchedEffect and keys.
+
+State hoisting: Keep state where it’s needed.
+
+Navigation: One activity = simpler.
+
+Coroutines: Stop them properly using isPlaying.
+
+Material 3: Some stuff still experimental, used @OptIn to make it work.
+
+My Honest Take
+AI basically helped me learn faster. It explained stuff I would’ve spent hours Googling.
+But I still had to type and test everything, so all the game logic and UI are mine. Conclusion, AI was only used for clarification, brainstorming, and small code patterns, not for generating full solutions or submitting unmodified AI code.
+It’s more like I used AI as a tutor, not a shortcut.
+
